@@ -10,9 +10,11 @@ from PIL import Image
 import matplotlib.pyplot as plt
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
+OUTPUT_DIR = os.path.join(BASE_DIR,"output")
 sys.path.append(os.path.join(ROOT_DIR, 'mayavi'))
 import kitti_util as utils
- 
+
+
  
 '''
 在图像中画2D框、3D框
@@ -36,7 +38,7 @@ def show_image_with_boxes(img, objects, calib, show3d=True):
 '''
 可视化BEV鸟瞰图
 '''
-def show_lidar_topview(pc_velo, objects, calib):
+def show_lidar_topview(pc_velo, objects, calib, color = (0, 255, 0), name = "BEV", is_show = False, is_save = False):
       # 1-设置鸟瞰图范围
     side_range = (-30, 30)  # 左右距离
     fwd_range = (0, 130)  # 后前距离
@@ -73,22 +75,33 @@ def show_lidar_topview(pc_velo, objects, calib):
         return ((a - min) / float(max - min) * 255).astype(dtype)
     
     pixel_value = scale_to_255(pixel_value, height_range[0], height_range[1])
+    pixel_value = 255 - pixel_value
     
     # 创建图像数组
     x_max = 1 + int((side_range[1] - side_range[0]) / res)
     y_max = 1 + int((fwd_range[1] - fwd_range[0]) / res)
-    im = np.zeros([y_max, x_max], dtype=np.uint8)
+    # im = np.zeros([y_max, x_max], dtype=np.uint8)
+    im = np.full([y_max, x_max], 255, dtype=np.uint8)
+
     im[y_img, x_img] = pixel_value
     
-    im2 = Image.fromarray(im)
-    im2.save('save_output/BEV.png')
-    im2.show()
+    im_PIL = Image.fromarray(im)
+    if is_save:
+        save_path = os.path.join(OUTPUT_DIR,name+".png")  
+        im_PIL.save(save_path)
+    if is_show:
+        if name!="":
+            im_PIL.show(title=name)
+        else:
+            im_PIL.show()
+    
+    return im
  
  
 '''
 将点云数据3D框投影到BEV
 '''
-def show_lidar_topview_with_boxes(img, objects, calib):
+def show_lidar_topview_with_boxes(img, objects, calib, color = (0, 255, 0),name = "BEV_boxes", is_show = False, is_save = False):
     def bbox3d(obj):
         box3d_pts_2d, box3d_pts_3d = utils.compute_box_3d(obj, calib.P) # 获取3D框-图像、3D框-相机坐标系
         box3d_pts_3d_velo = calib.project_rect_to_velo(box3d_pts_3d) # 将相机坐标系的框 转到 激光雷达坐标系
@@ -96,10 +109,18 @@ def show_lidar_topview_with_boxes(img, objects, calib):
  
     boxes3d = [bbox3d(obj) for obj in objects if obj.type == "Car"]
     gt = np.array(boxes3d)
-    im2 = utils.draw_box3d_label_on_bev(img, gt, scores=None, thickness=1) # 获取激光雷达坐标系的3D点，选择x, y两维，画到BEV平面坐标系上
-    im2 = Image.fromarray(im2)
-    im2.save('save_output/BEV with boxes.png')
-    im2.show()
+    im2 = utils.draw_box3d_label_on_bev(img, gt, color = color, scores=None,  thickness=1) # 获取激光雷达坐标系的3D点，选择x, y两维，画到BEV平面坐标系上
+    im_PIL = Image.fromarray(im2)
+    
+    if is_save:
+        save_path = os.path.join(OUTPUT_DIR,name+".png")  
+        im_PIL.save(save_path)
+    if is_show:
+        if name!="":
+            im_PIL.show(title=name)
+        else:
+            im_PIL.show()
+    return im2
  
  
 '''
@@ -168,6 +189,7 @@ class kitti_object(object):
         self.calib_dir = os.path.join(self.split_dir, 'calib')
         self.lidar_dir = os.path.join(self.split_dir, 'velodyne')
         self.label_dir = os.path.join(self.split_dir, 'label_2')
+        self.pre_dir = os.path.join(self.split_dir, 'pre_2')
  
     def __len__(self):
         return self.num_samples
@@ -190,6 +212,11 @@ class kitti_object(object):
     def get_label_objects(self, idx):
         assert(idx<self.num_samples and self.split=='training') 
         label_filename = os.path.join(self.label_dir, '%06d.txt'%(idx))
+        return utils.read_label(label_filename)
+    
+    def get_pre_objects(self, idx):
+        assert(idx<self.num_samples and self.split=='training') 
+        label_filename = os.path.join(self.pre_dir, '%06d.txt'%(idx))
         return utils.read_label(label_filename)
     
     def get_depth_map(self, idx):

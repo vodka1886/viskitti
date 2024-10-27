@@ -98,11 +98,11 @@ def draw_projected_box3d(image, qs, color=(0,60,255), thickness=2):
        cv2.line(image, (qs[i,0],qs[i,1]), (qs[j,0],qs[j,1]), color, thickness)
     return image
  
-def draw_box3d_label_on_bev(image, boxes3d, thickness=1, scores=None):
+def draw_box3d_label_on_bev(image, boxes3d, thickness=1, scores=None, color = (0, 255, 0)):
     # if scores is not None and scores.shape[0] >0:
     img = image.copy() 
     num = len(boxes3d)
-    color = (0, 255, 0)
+    
     for n in range(num):
         b = boxes3d[n]
         x0 = b[0, 0]
